@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Class CCTV Monitoring</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+<style>
+  body { 
+    padding: 2rem; 
+    font-family: 'Segoe UI', Tahoma; 
+    background: url("{{ url_for('static', filename='images/WhatsApp Image 2025-09-25 at 04.26.53_428b4051.jpg') }}")
+                no-repeat center center fixed;
+    background-size: cover;
+  }
+
+  .container { 
+    max-width: 900px; 
+    background: rgba(255,255,255,0.85);
+    padding: 2rem; 
+    border-radius: 14px; 
+    box-shadow: 0 0 20px rgba(0,0,0,0.2); 
+  }
+
+  .info-card {
+    background: rgba(0,0,0,0.05);
+    border-radius: 12px;
+    padding: 1.2rem;
+    margin-bottom: 1rem;
+  }
+
+  .status-live {
+    color: green;
+    font-weight: bold;
+  }
+
+  .status-offline {
+    color: red;
+    font-weight: bold;
+  }
+</style>
+</head>
+
+<body>
+<div class="container">
+
+  <h2>📹 Class CCTV Monitoring</h2>
+
+  <!-- SEARCH FORM -->
+  <form method="GET" action="/cctv">
+
+    <div class="row g-3 align-items-center mt-2">
+      <div class="col-md-5">
+        <label class="form-label">Class</label>
+        <select name="class" class="form-select" required>
+          <option value="" hidden>Select Class</option>
+          {% for c in range(1, 11) %}
+          <option value="{{ c }}" {% if selected_class is defined and selected_class|int == c %}selected{% endif %}>
+
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-md-5">
+        <label class="form-label">Section</label>
+        <select name="section" class="form-select" required>
+          <option value="" hidden>Select Section</option>
+          {% for s in ['A','B','C','D'] %}
+          <option value="{{ s }}" {% if selected_section is defined and selected_section == s %}selected{% endif %}>
+
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-md-2 d-flex align-items-end">
+        <button class="btn btn-primary w-100">Find</button>
+      </div>
+    </div>
+  </form>
+
+  {% if selected_class is defined and selected_section is defined %}
+
+  <hr />
+
+  <h4>📍 CCTV Status – Class {{ selected_class }} / Section {{ selected_section }}</h4>
+
+  <!-- CCTV INFO CARDS -->
+  <div class="info-card">
+    <p><strong>Camera ID:</strong> CCTV-{{ selected_class }}{{ selected_section }}-01</p>
+    <p><strong>Camera Location:</strong> Front Classroom (Board Facing)</p>
+    <p><strong>Status:</strong> <span class="status-live">LIVE</span></p>
+    <p><strong>Last Active:</strong> {{ last_active or "Just now" }}</p>
+  </div>
+
+  <div class="info-card">
+    <p><strong>Faces Detected Today:</strong> {{ face_count or 32 }}</p>
+    <p><strong>Recognized Students:</strong> {{ recognized_count or 28 }}</p>
+    <p><strong>Unknown Faces:</strong> {{ unknown_count or 4 }}</p>
+  </div>
+
+  <div class="info-card">
+    <p><strong>Classroom Activity:</strong> Normal</p>
+    <p><strong>Motion Alerts:</strong> No abnormal movement detected</p>
+    <p><strong>Last Attendance Sync:</strong> {{ last_sync or "10 minutes ago" }}</p>
+  </div>
+
+  <div class="d-flex gap-2 mt-3">
+    <button class="btn btn-success">▶ View Live Feed</button>
+    <button class="btn btn-outline-secondary">📼 View Recorded Clips</button>
+  </div>
+
+  {% endif %}
+
+  <a href="/" class="btn btn-secondary mt-4">Back to Dashboard</a>
+
+</div>
+</body>
+</html>
