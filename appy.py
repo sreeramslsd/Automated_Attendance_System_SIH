@@ -50,6 +50,7 @@ def init_db():
     conn.commit()
     conn.close()
 
+from flask import Flask, render_template, request, redirect, url_for, flash, session
 
 init_db()
 
@@ -111,6 +112,57 @@ def validate_roll(roll):
     import re
     pattern = r"^T-CSE-[A-Za-z0-9]{3}$"
     return re.fullmatch(pattern, roll)
+
+STUDENTS = {
+    "23A81A05F2": {
+        "name": "Sri",
+        "password": "1234",
+        "attendance": [
+            "2025-12-22 12:30",
+            "2025-12-22 12:42",
+            "2025-12-22 12:53",
+            "2025-12-22 02:11",
+            "2025-12-22 02:12",
+            "2025-12-22 02:13"
+        ]
+    },
+    "23A81A05E9": {
+        "name": "Poorna",
+        "password": "1234",
+        "attendance": [
+            "2025-12-22 12:30",
+            "2025-12-22 12:42",
+            "2025-12-22 12:53",
+            "2025-12-22 02:11",
+            "2025-12-22 02:12",
+            "2025-12-22 02:13"
+        ]
+    },
+    "23A81A05F3": {
+        "name": "akhil",
+        "password": "1234",
+        "attendance": [
+            "2025-12-22 12:30",
+            "2025-12-22 12:42",
+            "2025-12-22 12:53",
+            "2025-12-22 02:11",
+            "2025-12-22 02:12",
+            "2025-12-22 02:13"
+        ]
+    },
+    "23A81A05E8": {
+        "name": "Lalith",
+        "password": "1234",
+        "attendance": [
+            "2025-12-22 12:30",
+            "2025-12-22 12:42",
+            "2025-12-22 12:53",
+            "2025-12-22 02:11",
+            "2025-12-22 02:12",
+            "2025-12-22 02:13"
+        ]
+    }
+}
 
 # Registration Page + POST handler
 @app.route("/register", methods=["GET", "POST"])
@@ -246,11 +298,66 @@ def add_student():
     os.makedirs(os.path.join(DATASET_DIR, str(sid)), exist_ok=True)
     return jsonify({"student_id": sid})
 
+@app.route("/student_login", methods=["GET", "POST"])
+def student_login():
+    if request.method == "POST":
+        rollno = request.form.get("rollno")
+        password = request.form.get("password")
 
+        if not rollno or not password:
+            flash("All fields are required", "danger")
+            return redirect(url_for("student_login"))
+
+        if rollno not in STUDENTS:
+            flash("Invalid Roll Number", "danger")
+            return redirect(url_for("student_login"))
+
+        if STUDENTS[rollno]["password"] != password:
+            flash("Incorrect Password", "danger")
+            return redirect(url_for("student_login"))
+
+        # ✅ Save login session
+        session["student_roll"] = rollno
+        session["student_name"] = STUDENTS[rollno]["name"]
+
+        flash("Login successful!", "success")
+        return redirect(url_for("student_dashboard"))
+
+    return render_template("student_login.html")
+
+
+# -------------------------------
+# STUDENT DASHBOARD
+# -------------------------------
+@app.route("/student_dashboard")
+def student_dashboard():
+    if "student_roll" not in session:
+        flash("Please login first", "warning")
+        return redirect(url_for("student_login"))
+
+    rollno = session["student_roll"]
+    student = STUDENTS[rollno]
+
+    attendance_records = student["attendance"]
+
+    return render_template(
+        "student_dashboard.html",
+        name=student["name"],
+        attendance_count=len(attendance_records),
+        weekly_count=min(7, len(attendance_records)),
+        monthly_count=min(30, len(attendance_records)),
+        recent_records=[(r,) for r in attendance_records],
+    )
 
 
 # -------- Upload face images (after capture) --------
 from sklearn.metrics.pairwise import cosine_similarity
+
+# -------- Upload face images (after capture) --------
+from sklearn.metrics.pairwise import cosine_similarity
+# -------- Upload face images (after capture) --------
+from sklearn.metrics.pairwise import cosine_similarity
+
 
 # -------- Upload face images (after capture) --------
 @app.route("/upload_face", methods=["POST"])
@@ -273,7 +380,6 @@ def upload_face():
             app.logger.error("save error: %s", e)
     return jsonify({"saved": saved})
 
-
 # -------- Train model (start background thread) --------
 @app.route("/train_model", methods=["GET"])
 def train_model_route():
@@ -288,6 +394,7 @@ def train_model_route():
     t.daemon = True
     t.start()
     return jsonify({"status":"started"}), 202
+
 # -------- Train progress (polling) --------
 @app.route("/train_status", methods=["GET"])
 def train_status():
@@ -298,6 +405,7 @@ def train_status():
 def mark_attendance_page():
     return render_template("mark_attendance.html")
 
+# -------- Recognize face endpoint (POST image) --------
 @app.route("/recognize_face", methods=["POST"])
 def recognize_face():
     if "image" not in request.files:
@@ -345,7 +453,6 @@ from model import load_model_if_exists, predict_with_model, extract_embedding_fo
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(APP_DIR, "attendance.db")
-
 @app.route('/video_attendance', methods=['GET', 'POST'])
 def video_attendance():
     if request.method == 'GET':
@@ -698,82 +805,128 @@ def classes():
                            selected_section=selected_section,
                            students=students,
                            class_attendance=class_attendance)
-@app.route("/leaderboard", methods=["GET"])
-def leaderboard():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
+    
+@app.route('/institutes')
+def institutes():
+    # This tells Flask to look into the 'templates' folder for institutions.html
+    return render_template('institutions.html')
 
-    # Fixed classes and sections
-    classes = [str(i) for i in range(1, 11)]
-    sections = ['A', 'B', 'C', 'D']
-
+@app.route("/cctv")
+def classes_page():
     selected_class = request.args.get("class")
     selected_section = request.args.get("section")
 
+    return render_template(
+        "cctv.html",
+        selected_class=selected_class,
+        selected_section=selected_section,
+        face_count=32,
+        recognized_count=28,
+        unknown_count=4,
+        last_active="Just now",
+        last_sync="10 minutes ago"
+    )
+
+@app.route("/cctv")
+def cctv_page():
+    selected_class = request.args.get("class")
+    selected_section = request.args.get("section")
+
+    return render_template(
+        "cctv.html",
+        selected_class=selected_class,
+        selected_section=selected_section,
+        face_count=32,
+        recognized_count=28,
+        unknown_count=4,
+        last_active="Just now",
+        last_sync="10 minutes ago"
+    )
+    
+import random
+
+@app.route("/leaderboard")
+def leaderboard():
+    # Sample classes and sections
+    classes = [8, 9, 10, 11, 12]
+    sections = ['A', 'B', 'C', 'D']
+    
+    selected_class = request.args.get('class')
+    selected_section = request.args.get('section')
+    
     students = []
-    class_attendance = 0
-
+    
     if selected_class and selected_section:
-        # Get students matching class/section
-        c.execute("""
-            SELECT id, name, roll FROM students
-            WHERE class=? AND section=?
-            ORDER BY roll
-        """, (selected_class, selected_section))
-        raw = c.fetchall()
-
-        # Total days recorded in attendance table
-        c.execute("SELECT COUNT(DISTINCT date(timestamp)) FROM attendance")
-        total_days = c.fetchone()[0] or 1
-
-        # Today's attendance count for class and section
-        c.execute("""
-            SELECT COUNT(DISTINCT attendance.student_id)
-            FROM attendance
-            JOIN students ON attendance.student_id = students.id
-            WHERE students.class=? AND students.section=? AND date(attendance.timestamp) = date('now')
-        """, (selected_class, selected_section))
-        present_today = c.fetchone()[0] or 0
-
-        total_students = len(raw)
-        class_attendance = round((present_today / total_students) * 100, 1) if total_students else 0
-
-        # Fetch streaks and badges from student_progress table
-        for sid, name, roll in raw:
-            c.execute("SELECT total_days_present, consecutive_days_present, badge FROM student_progress WHERE student_id=?", (sid,))
-            prog = c.fetchone()
-            if prog:
-                total_days_present, consec_days, badge = prog
+        # Generate realistic student data for selected class/section
+        class_num = int(selected_class)
+        
+        # Generate 20-30 students with realistic roll numbers
+        num_students = random.randint(20, 30)
+        student_names = [
+            "Sriram", "Vikas", "Lalith", "Poorna", "Akhil", "Priya", "Ravi", "Sneha",
+            "Arjun", "Divya", "Kiran", "Meera", "Nikhil", "Pooja", "Rahul", "Sanjay",
+            "Tejas", "Uma", "Vijay", "Yamini", "Zoya", "Anand", "Bhargavi", "Chaitanya"
+        ]
+        
+        used_rolls = set()
+        for i in range(num_students):
+            # Generate roll number: YEAR + CLASS + SECTION + SEQ (e.g., 23A81A05F2)
+            roll_seq = f"{random.randint(1, 99):02d}"
+            roll = f"23{class_num:02d}A05{random.choice(['E', 'F'])}2{roll_seq}"
+            
+            # Ensure unique roll
+            while roll in used_rolls:
+                roll_seq = f"{random.randint(1, 99):02d}"
+                roll = f"23{class_num:02d}A05{random.choice(['E', 'F'])}2{roll_seq}"
+            used_rolls.add(roll)
+            
+            # Random name
+            name = random.choice(student_names)
+            
+            # Random attendance: 40-100%, with some clustering around 92%
+            if random.random() < 0.4:  # 40% chance of high attendance
+                att_percent = random.choice([92, 95, 98, 100, 88])
             else:
-                total_days_present, consec_days, badge = 0, 0, ''
-
-            attendance_percent = round((total_days_present / total_days)*100, 1) if total_days > 0 else 0
-
-            # Generate stars for streak (up to 5 stars max for demo)
-            stars = "⭐" * min(consec_days, 5)
-
+                att_percent = random.randint(40, 85)
+            
+            # Consecutive days (1-30)
+            consec_days = random.randint(1, 30)
+            
+            # Stars based on attendance
+            stars = "⭐⭐⭐⭐⭐" if att_percent >= 90 else "⭐⭐⭐⭐" if att_percent >= 80 else "⭐⭐⭐"
+            
+            # Badge based on attendance
+            if att_percent >= 95:
+                badge = "🥇"
+            elif att_percent >= 85:
+                badge = "🥈"
+            else:
+                badge = "🥉"
+            
             students.append({
-                "id": sid,
-                "name": name,
                 "roll": roll,
-                "attendance_percent": attendance_percent,
+                "name": name,
+                "attendance_percent": att_percent,
                 "consec_days": consec_days,
-                "badge": badge or "",
+                "badge": badge,
                 "stars": stars
             })
-
-        # Sort students by attendance_percent desc, then consecutive_days desc
-        students.sort(key=lambda x: (x['attendance_percent'], x['consec_days']), reverse=True)
-
-    conn.close()
-
+        
+        # Sort by attendance percentage DESCENDING
+        students.sort(key=lambda x: x["attendance_percent"], reverse=True)
+        
+        # Calculate class attendance average
+        total_att = sum(s["attendance_percent"] for s in students)
+        class_attendance = round(total_att / len(students), 1)
+        
     return render_template("leaderboard.html",
-                           classes=classes,
-                           sections=sections,
-                           selected_class=selected_class,
-                           selected_section=selected_section,
-                           students=students,
-                           class_attendance=class_attendance)
+                         classes=classes,
+                         sections=sections,
+                         selected_class=selected_class,
+                         selected_section=selected_section,
+                         students=students if 'students' in locals() else [],
+                         class_attendance=class_attendance if 'class_attendance' in locals() else 0)
+
 
 
 
