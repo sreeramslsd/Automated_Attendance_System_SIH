@@ -4,3 +4,5 @@ opencv-python
 numpy
 bcrypt
 werkzeug
+scikit-learn
+
