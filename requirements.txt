@@ -1,8 +1,16 @@
+# Web
 flask
 gunicorn
-opencv-python
-numpy
-bcrypt
 werkzeug
-scikit-learn
 
+# Security
+bcrypt
+
+# ML / CV
+numpy
+opencv-python
+scikit-learn
+joblib
+
+# Utilities (used indirectly / future-safe)
+pillow
